@@ -4,6 +4,21 @@ const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
 const dotenv = require('dotenv');
+
+// Load env vars
+dotenv.config();
+
+// ✅ Define Express app early
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+// Health route
+app.get('/', (req, res) => {
+  res.send('Student Task Portal Backend is Live 🚀');
+});
+
+// Routes
 const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
 const blogRoutes = require('./routes/blog');
@@ -11,41 +26,27 @@ const messageRoutes = require('./routes/messages');
 const adminRoutes = require('./routes/admin');
 const studentRoutes = require('./routes/studentRoutes');
 
-app.get('/', (req, res) => {
-  res.send('Student Task Portal Backend is Live 🚀');
-});
-// Load environment variables
-dotenv.config();
-
-// Create Express app
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-// Store WebSocket connections
+// WebSocket clients
 const clients = new Map();
 
-// WebSocket connection handler
-wss.on('connection', (ws, req) => {
-  console.log('New WebSocket connection');
+wss.on('connection', (ws) => {
+  console.log('WebSocket connection established.');
 
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
-      console.log('Received message:', data);
+      console.log('Message:', data);
 
       if (data.type === 'join') {
-        // Store the connection with the user ID
         clients.set(data.userId, ws);
         console.log(`User ${data.userId} joined`);
       }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+    } catch (err) {
+      console.error('WebSocket error:', err);
     }
   });
 
   ws.on('close', () => {
-    // Remove the connection when it's closed
     for (const [userId, client] of clients.entries()) {
       if (client === ws) {
         clients.delete(userId);
@@ -56,7 +57,7 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Make WebSocket server available globally
+// WebSocket global emitter
 global.io = {
   to: (userId) => ({
     emit: (event, data) => {
@@ -68,15 +69,12 @@ global.io = {
   })
 };
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-console.log('Attempting to connect to MongoDB...');
-console.log('MongoDB URI:', process.env.MONGODB_URI);
-
+// DB Connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -88,17 +86,14 @@ mongoose.connect(process.env.MONGODB_URI, {
   w: 'majority'
 })
 .then(() => {
-  console.log('Successfully connected to MongoDB.');
-  console.log('Database name:', mongoose.connection.name);
-  console.log('Host:', mongoose.connection.host);
-  console.log('Port:', mongoose.connection.port);
+  console.log('✅ Connected to MongoDB');
 })
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
+.catch((err) => {
+  console.error('❌ MongoDB connection error:', err);
   process.exit(1);
 });
 
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/students', studentRoutes);
@@ -106,17 +101,14 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/blog', blogRoutes);
 
-// Error handling middleware
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ 
-    message: 'Internal server error',
-    error: err.message 
-  });
+  console.error('❌ Error:', err);
+  res.status(500).json({ message: 'Internal Server Error', error: err.message });
 });
 
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+  console.log(`🚀 Server is running on port ${PORT}`);
+});
