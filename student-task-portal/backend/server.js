@@ -14,7 +14,6 @@ const studentRoutes = require('./routes/studentRoutes');
 app.get('/', (req, res) => {
   res.send('Student Task Portal Backend is Live 🚀');
 });
-
 // Load environment variables
 dotenv.config();
 
